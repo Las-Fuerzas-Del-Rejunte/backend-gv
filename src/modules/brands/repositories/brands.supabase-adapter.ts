@@ -15,7 +15,9 @@ export interface BrandRecord {
 }
 
 @Injectable()
-export class BrandsSupabaseAdapter implements SupabaseAdapter<BrandRecord, Brand, CreateBrandDto, UpdateBrandDto> {
+export class BrandsSupabaseAdapter
+  implements SupabaseAdapter<BrandRecord, Brand, CreateBrandDto, UpdateBrandDto>
+{
   toDomain(record: BrandRecord): Brand {
     return {
       id: record.id,
@@ -28,7 +30,9 @@ export class BrandsSupabaseAdapter implements SupabaseAdapter<BrandRecord, Brand
     };
   }
 
-  toRecord(payload: Partial<CreateBrandDto | UpdateBrandDto>): Partial<BrandRecord> {
+  toRecord(
+    payload: Partial<CreateBrandDto | UpdateBrandDto>,
+  ): Partial<BrandRecord> {
     const record: Partial<BrandRecord> = {};
 
     if (payload.userId !== undefined) {

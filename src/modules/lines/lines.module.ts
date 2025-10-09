@@ -3,8 +3,10 @@ import { LinesController } from './lines.controller';
 import { LinesService } from './lines.service';
 import { LinesRepository } from './repositories/lines.repository';
 import { LinesSupabaseAdapter } from './repositories/lines.supabase-adapter';
+import { BrandsModule } from '../brands/brands.module';
 
 @Module({
+  imports: [BrandsModule],
   controllers: [LinesController],
   providers: [LinesService, LinesRepository, LinesSupabaseAdapter],
   exports: [LinesService],

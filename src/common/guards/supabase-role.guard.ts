@@ -1,8 +1,14 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { User } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ROLES_KEY, Role } from '../decorators/roles.decorator';
+import { AuthenticatedRequest } from '../interfaces/authenticated-request.interface';
 
 @Injectable()
 export class SupabaseRoleGuard implements CanActivate {
@@ -27,14 +33,16 @@ export class SupabaseRoleGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
-    const user = request.user as User | undefined;
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const user: User | undefined = request.user;
 
     if (!user) {
       throw new UnauthorizedException('User context missing');
     }
 
-    const userRole = (request.userRole as Role | undefined) ??
+    const requestRole = request.userRole as Role | null | undefined;
+    const userRole =
+      requestRole ??
       (user.app_metadata?.role as Role | undefined) ??
       (user.user_metadata?.role as Role | undefined) ??
       (user.role as Role | undefined);

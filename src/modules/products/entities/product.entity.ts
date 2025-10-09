@@ -1,8 +1,10 @@
+import { ProductSupplier } from './product-supplier.entity';
+
 export interface Product {
   id: string;
   userId: string;
   brandId: string;
-  lineId?: string | null;
+  lineId: string;
   name: string;
   description?: string | null;
   category: string;
@@ -12,4 +14,5 @@ export interface Product {
   minStock: number;
   createdAt: string;
   updatedAt: string;
+  suppliers: ProductSupplier[];
 }

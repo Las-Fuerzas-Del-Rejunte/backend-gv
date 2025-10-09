@@ -1,9 +1,15 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { User } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
 import { SupabaseService } from '../../database/supabase.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ProfileSummary } from '../interfaces/profile-summary.interface';
+import { AuthenticatedRequest } from '../interfaces/authenticated-request.interface';
 
 interface ProfileRecord {
   id: string;
@@ -31,26 +37,26 @@ export class SupabaseAuthGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const token = this.extractTokenFromHeader(request);
 
     if (!token) {
       throw new UnauthorizedException('Missing bearer token');
     }
 
-    const { data, error } = await this.supabaseService.client.auth.getUser(token);
+    const authResponse = await this.supabaseService.client.auth.getUser(token);
 
-    if (error || !data?.user) {
+    if (authResponse.error || !authResponse.data?.user) {
       throw new UnauthorizedException('Invalid or expired token');
     }
 
-    const user = data.user as User;
+    const user: User = authResponse.data.user;
     const profile = await this.fetchProfile(user.id);
     const resolvedRole =
       profile?.role ??
       (user.app_metadata?.role as string | undefined) ??
       (user.user_metadata?.role as string | undefined) ??
-      (user.role as string | undefined);
+      user.role;
 
     request.user = user;
     request.authToken = token;
@@ -61,21 +67,21 @@ export class SupabaseAuthGuard implements CanActivate {
   }
 
   private async fetchProfile(userId: string): Promise<ProfileSummary | null> {
-    const { data, error } = await this.supabaseService.client
+    const response = await this.supabaseService.client
       .from('profiles')
       .select('id, user_id, name, email, role, avatar')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') {
+    if (response.error && response.error.code !== 'PGRST116') {
       throw new UnauthorizedException('Could not retrieve user profile');
     }
 
-    if (!data) {
+    if (!response.data) {
       return null;
     }
 
-    const profile = data as ProfileRecord;
+    const profile = response.data as ProfileRecord;
 
     return {
       id: profile.id,
@@ -87,9 +93,9 @@ export class SupabaseAuthGuard implements CanActivate {
     };
   }
 
-  private extractTokenFromHeader(request: Record<string, any>): string | null {
-    const authHeader = request.headers?.authorization ?? '';
-    const [type, token] = authHeader.split(' ');
+  private extractTokenFromHeader(request: AuthenticatedRequest): string | null {
+    const headerValue = request.get('authorization') ?? '';
+    const [type, token] = headerValue.split(' ');
 
     if (type?.toLowerCase() !== 'bearer' || !token) {
       return null;

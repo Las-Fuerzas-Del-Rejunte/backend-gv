@@ -16,7 +16,15 @@ export interface SupplierRecord {
 }
 
 @Injectable()
-export class SuppliersSupabaseAdapter implements SupabaseAdapter<SupplierRecord, Supplier, CreateSupplierDto, UpdateSupplierDto> {
+export class SuppliersSupabaseAdapter
+  implements
+    SupabaseAdapter<
+      SupplierRecord,
+      Supplier,
+      CreateSupplierDto,
+      UpdateSupplierDto
+    >
+{
   toDomain(record: SupplierRecord): Supplier {
     return {
       id: record.id,
@@ -30,7 +38,9 @@ export class SuppliersSupabaseAdapter implements SupabaseAdapter<SupplierRecord,
     };
   }
 
-  toRecord(payload: Partial<CreateSupplierDto | UpdateSupplierDto>): Partial<SupplierRecord> {
+  toRecord(
+    payload: Partial<CreateSupplierDto | UpdateSupplierDto>,
+  ): Partial<SupplierRecord> {
     const record: Partial<SupplierRecord> = {};
 
     if (payload.name !== undefined) {

@@ -16,6 +16,8 @@ import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { UpdateSaleDto } from './dto/update-sale.dto';
 import { Sale } from './entities/sale.entity';
+import { SalesMetricsFilterDto } from './dto/sales-metrics-filter.dto';
+import { SalesMonthlyMetric, SalesSummaryMetrics } from './sales.service';
 
 @Controller('api/sales')
 export class SalesController {
@@ -39,7 +41,9 @@ export class SalesController {
     @Query('end') endDate?: string,
   ): Promise<Sale[]> {
     if (!startDate || !endDate) {
-      throw new BadRequestException('Query params "start" and "end" are required');
+      throw new BadRequestException(
+        'Query params "start" and "end" are required',
+      );
     }
 
     if (new Date(startDate) > new Date(endDate)) {
@@ -47,6 +51,20 @@ export class SalesController {
     }
 
     return this.salesService.findByDateRange(startDate, endDate);
+  }
+
+  @Get('metrics/summary')
+  getSummaryMetrics(
+    @Query() filters: SalesMetricsFilterDto,
+  ): Promise<SalesSummaryMetrics> {
+    return this.salesService.getSummaryMetrics(filters);
+  }
+
+  @Get('metrics/monthly')
+  getMonthlyMetrics(
+    @Query() filters: SalesMetricsFilterDto,
+  ): Promise<SalesMonthlyMetric[]> {
+    return this.salesService.getMonthlyMetrics(filters);
   }
 
   @Get(':id')

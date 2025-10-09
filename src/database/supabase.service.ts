@@ -4,7 +4,9 @@ import { SUPABASE_CLIENT } from './supabase.constants';
 
 @Injectable()
 export class SupabaseService {
-  constructor(@Inject(SUPABASE_CLIENT) private readonly supabaseClient: SupabaseClient) {}
+  constructor(
+    @Inject(SUPABASE_CLIENT) private readonly supabaseClient: SupabaseClient,
+  ) {}
 
   get client(): SupabaseClient {
     return this.supabaseClient;

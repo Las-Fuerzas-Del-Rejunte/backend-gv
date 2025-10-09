@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './../src/app.module';
-import * as request from 'supertest';
+import request from 'supertest';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication;
@@ -27,17 +27,16 @@ describe('AppController (e2e)', () => {
     await app.close();
   });
 
-  it('/api/health (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/api/health')
-      .expect(200)
-      .expect(({ body }) => {
-        expect(body).toEqual(
-          expect.objectContaining({
-            status: 'ok',
-            service: 'sales-api',
-          }),
-        );
-      });
+  it('/api/health (GET)', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const response = await request(httpServer).get('/api/health');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        status: 'ok',
+        service: 'sales-api',
+      }),
+    );
   });
 });

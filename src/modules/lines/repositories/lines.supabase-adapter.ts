@@ -6,6 +6,7 @@ import { UpdateLineDto } from '../dto/update-line.dto';
 
 export interface LineRecord {
   id: string;
+  brand_id: string;
   name: string;
   description?: string | null;
   created_at: string;
@@ -13,10 +14,13 @@ export interface LineRecord {
 }
 
 @Injectable()
-export class LinesSupabaseAdapter implements SupabaseAdapter<LineRecord, Line, CreateLineDto, UpdateLineDto> {
+export class LinesSupabaseAdapter
+  implements SupabaseAdapter<LineRecord, Line, CreateLineDto, UpdateLineDto>
+{
   toDomain(record: LineRecord): Line {
     return {
       id: record.id,
+      brandId: record.brand_id,
       name: record.name,
       description: record.description ?? null,
       createdAt: record.created_at,
@@ -24,8 +28,14 @@ export class LinesSupabaseAdapter implements SupabaseAdapter<LineRecord, Line, C
     };
   }
 
-  toRecord(payload: Partial<CreateLineDto | UpdateLineDto>): Partial<LineRecord> {
+  toRecord(
+    payload: Partial<CreateLineDto | UpdateLineDto>,
+  ): Partial<LineRecord> {
     const record: Partial<LineRecord> = {};
+
+    if (payload.brandId !== undefined) {
+      record.brand_id = payload.brandId;
+    }
 
     if (payload.name !== undefined) {
       record.name = payload.name;

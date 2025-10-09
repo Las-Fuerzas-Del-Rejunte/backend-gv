@@ -1,9 +1,14 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { SupabaseService } from '../../../database/supabase.service';
 import { Sale } from '../entities/sale.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { CreateSaleDto, CreateSaleItemDto } from '../dto/create-sale.dto';
 import { UpdateSaleDto, UpdateSaleItemDto } from '../dto/update-sale.dto';
+import { SalesMetricsFilterDto } from '../dto/sales-metrics-filter.dto';
 
 type SalePayload = Partial<CreateSaleDto> | Partial<UpdateSaleDto>;
 type SaleItemInput = CreateSaleItemDto | UpdateSaleItemDto;
@@ -29,6 +34,24 @@ interface SaleItemRecord {
   created_at: string;
 }
 
+interface MetricsProductRecord {
+  id: string;
+  name: string;
+  brand_id: string;
+  line_id: string;
+  brand?: { id: string; name: string } | null;
+  line?: { id: string; name: string } | null;
+  product_suppliers?: { supplier_id: string }[];
+}
+
+interface MetricsSaleItemRecord extends SaleItemRecord {
+  product?: MetricsProductRecord | null;
+}
+
+interface MetricsSaleRecord extends SaleRecord {
+  sale_items?: MetricsSaleItemRecord[];
+}
+
 @Injectable()
 export class SalesRepository {
   private readonly salesTable = 'sales';
@@ -37,65 +60,73 @@ export class SalesRepository {
   constructor(private readonly supabase: SupabaseService) {}
 
   async findAll(): Promise<Sale[]> {
-    const { data, error } = await this.supabase.client
+    const response = await this.supabase.client
       .from(this.salesTable)
       .select('*, sale_items(*)')
       .order('sale_date', { ascending: false });
 
-    if (error) {
-      throw new InternalServerErrorException(`Could not fetch sales: ${error.message}`);
+    if (response.error) {
+      throw new InternalServerErrorException(
+        `Could not fetch sales: ${response.error.message}`,
+      );
     }
 
-    const records = (data ?? []) as SaleRecord[];
+    const records = (response.data ?? []) as SaleRecord[];
     return records.map((record) => this.toDomain(record));
   }
 
   async findById(id: string): Promise<Sale> {
-    const { data, error } = await this.supabase.client
+    const response = await this.supabase.client
       .from(this.salesTable)
       .select('*, sale_items(*)')
       .eq('id', id)
       .maybeSingle();
 
-    if (error) {
-      throw new InternalServerErrorException(`Could not fetch sale: ${error.message}`);
+    if (response.error) {
+      throw new InternalServerErrorException(
+        `Could not fetch sale: ${response.error.message}`,
+      );
     }
 
-    if (!data) {
+    if (!response.data) {
       throw new NotFoundException(`Sale with id ${id} not found`);
     }
 
-    return this.toDomain(data as SaleRecord);
+    return this.toDomain(response.data as SaleRecord);
   }
 
   async findByEmployee(employeeId: string): Promise<Sale[]> {
-    const { data, error } = await this.supabase.client
+    const response = await this.supabase.client
       .from(this.salesTable)
       .select('*, sale_items(*)')
       .eq('employee_id', employeeId)
       .order('sale_date', { ascending: false });
 
-    if (error) {
-      throw new InternalServerErrorException(`Could not fetch sales by employee: ${error.message}`);
+    if (response.error) {
+      throw new InternalServerErrorException(
+        `Could not fetch sales by employee: ${response.error.message}`,
+      );
     }
 
-    const records = (data ?? []) as SaleRecord[];
+    const records = (response.data ?? []) as SaleRecord[];
     return records.map((record) => this.toDomain(record));
   }
 
   async findByDateRange(startDate: string, endDate: string): Promise<Sale[]> {
-    const { data, error } = await this.supabase.client
+    const response = await this.supabase.client
       .from(this.salesTable)
       .select('*, sale_items(*)')
       .gte('sale_date', startDate)
       .lte('sale_date', endDate)
       .order('sale_date', { ascending: false });
 
-    if (error) {
-      throw new InternalServerErrorException(`Could not fetch sales by date range: ${error.message}`);
+    if (response.error) {
+      throw new InternalServerErrorException(
+        `Could not fetch sales by date range: ${response.error.message}`,
+      );
     }
 
-    const records = (data ?? []) as SaleRecord[];
+    const records = (response.data ?? []) as SaleRecord[];
     return records.map((record) => this.toDomain(record));
   }
 
@@ -103,27 +134,36 @@ export class SalesRepository {
     const totalAmount = this.calculateTotal(payload.items, payload.totalAmount);
     const saleRecord = this.toSaleRecord(payload, totalAmount);
 
-    const { data: saleData, error: saleError } = await this.supabase.client
+    const saleResponse = await this.supabase.client
       .from(this.salesTable)
       .insert(saleRecord)
       .select('*')
       .single();
 
-    if (saleError || !saleData) {
-      throw new InternalServerErrorException(`Could not create sale: ${saleError?.message}`);
+    if (saleResponse.error || !saleResponse.data) {
+      throw new InternalServerErrorException(
+        `Could not create sale: ${saleResponse.error?.message}`,
+      );
     }
 
-    const saleId = (saleData as SaleRecord).id;
+    const saleId = (saleResponse.data as SaleRecord).id;
 
-    const saleItemsRecords = payload.items.map((item) => this.toSaleItemRecord(item, saleId));
+    const saleItemsRecords = payload.items.map((item) =>
+      this.toSaleItemRecord(item, saleId),
+    );
 
-    const { error: saleItemsError } = await this.supabase.client
+    const itemsResponse = await this.supabase.client
       .from(this.saleItemsTable)
       .insert(saleItemsRecords);
 
-    if (saleItemsError) {
-      await this.supabase.client.from(this.salesTable).delete().eq('id', saleId);
-      throw new InternalServerErrorException(`Could not create sale items: ${saleItemsError.message}`);
+    if (itemsResponse.error) {
+      await this.supabase.client
+        .from(this.salesTable)
+        .delete()
+        .eq('id', saleId);
+      throw new InternalServerErrorException(
+        `Could not create sale items: ${itemsResponse.error.message}`,
+      );
     }
 
     return this.findById(saleId);
@@ -139,34 +179,42 @@ export class SalesRepository {
     const saleRecord = this.toSaleRecord(payload, totalAmount);
 
     if (Object.keys(saleRecord).length > 0) {
-      const { error: saleError } = await this.supabase.client
+      const updateResponse = await this.supabase.client
         .from(this.salesTable)
         .update(saleRecord)
         .eq('id', id);
 
-      if (saleError) {
-        throw new InternalServerErrorException(`Could not update sale: ${saleError.message}`);
+      if (updateResponse.error) {
+        throw new InternalServerErrorException(
+          `Could not update sale: ${updateResponse.error.message}`,
+        );
       }
     }
 
     if (payload.items) {
-      const { error: deleteError } = await this.supabase.client
+      const deleteResponse = await this.supabase.client
         .from(this.saleItemsTable)
         .delete()
         .eq('sale_id', id);
 
-      if (deleteError) {
-        throw new InternalServerErrorException(`Could not reset sale items: ${deleteError.message}`);
+      if (deleteResponse.error) {
+        throw new InternalServerErrorException(
+          `Could not reset sale items: ${deleteResponse.error.message}`,
+        );
       }
 
-      const saleItemsRecords = payload.items.map((item) => this.toSaleItemRecord(item, id));
+      const saleItemsRecords = payload.items.map((item) =>
+        this.toSaleItemRecord(item, id),
+      );
 
-      const { error: insertError } = await this.supabase.client
+      const insertResponse = await this.supabase.client
         .from(this.saleItemsTable)
         .insert(saleItemsRecords);
 
-      if (insertError) {
-        throw new InternalServerErrorException(`Could not update sale items: ${insertError.message}`);
+      if (insertResponse.error) {
+        throw new InternalServerErrorException(
+          `Could not update sale items: ${insertResponse.error.message}`,
+        );
       }
     }
 
@@ -176,37 +224,99 @@ export class SalesRepository {
   async remove(id: string): Promise<void> {
     await this.ensureSaleExists(id);
 
-    const { error: itemsError } = await this.supabase.client
+    const itemsDeleteResponse = await this.supabase.client
       .from(this.saleItemsTable)
       .delete()
       .eq('sale_id', id);
 
-    if (itemsError) {
-      throw new InternalServerErrorException(`Could not delete sale items: ${itemsError.message}`);
+    if (itemsDeleteResponse.error) {
+      throw new InternalServerErrorException(
+        `Could not delete sale items: ${itemsDeleteResponse.error.message}`,
+      );
     }
 
-    const { error: saleError } = await this.supabase.client
+    const saleDeleteResponse = await this.supabase.client
       .from(this.salesTable)
       .delete()
       .eq('id', id);
 
-    if (saleError) {
-      throw new InternalServerErrorException(`Could not delete sale: ${saleError.message}`);
+    if (saleDeleteResponse.error) {
+      throw new InternalServerErrorException(
+        `Could not delete sale: ${saleDeleteResponse.error.message}`,
+      );
     }
   }
 
+  async findMetricsData(
+    filters: SalesMetricsFilterDto,
+  ): Promise<MetricsSaleRecord[]> {
+    const query = this.supabase.client
+      .from(this.salesTable)
+      .select(
+        `
+        id,
+        employee_id,
+        total_amount,
+        sale_date,
+        notes,
+        created_at,
+        updated_at,
+        sale_items (
+          id,
+          sale_id,
+          product_id,
+          quantity,
+          unit_price,
+          subtotal,
+          created_at,
+          product:products (
+            id,
+            name,
+            brand_id,
+            line_id,
+            brand:brands ( id, name ),
+            line:lines ( id, name ),
+            product_suppliers ( supplier_id )
+          )
+        )
+      `,
+      )
+      .order('sale_date', { ascending: true });
+
+    if (filters.startDate) {
+      query.gte('sale_date', filters.startDate);
+    }
+
+    if (filters.endDate) {
+      query.lte('sale_date', filters.endDate);
+    }
+
+    const response = await query;
+
+    if (response.error) {
+      throw new InternalServerErrorException(
+        `Could not fetch sales metrics: ${response.error.message}`,
+      );
+    }
+
+    const metrics = (response.data ?? []) as unknown;
+    return metrics as MetricsSaleRecord[];
+  }
+
   private async ensureSaleExists(id: string): Promise<void> {
-    const { data, error } = await this.supabase.client
+    const response = await this.supabase.client
       .from(this.salesTable)
       .select('id')
       .eq('id', id)
       .maybeSingle();
 
-    if (error) {
-      throw new InternalServerErrorException(`Could not verify sale: ${error.message}`);
+    if (response.error) {
+      throw new InternalServerErrorException(
+        `Could not verify sale: ${response.error.message}`,
+      );
     }
 
-    if (!data) {
+    if (!response.data) {
       throw new NotFoundException(`Sale with id ${id} not found`);
     }
   }
@@ -236,7 +346,10 @@ export class SalesRepository {
     };
   }
 
-  private toSaleRecord(payload: SalePayload, totalAmount?: number): Partial<SaleRecord> {
+  private toSaleRecord(
+    payload: SalePayload,
+    totalAmount?: number,
+  ): Partial<SaleRecord> {
     const record: Partial<SaleRecord> = {};
 
     if ('employeeId' in payload && payload.employeeId !== undefined) {
@@ -258,7 +371,10 @@ export class SalesRepository {
     return record;
   }
 
-  private toSaleItemRecord(item: SaleItemInput, saleId: string): Partial<SaleItemRecord> {
+  private toSaleItemRecord(
+    item: SaleItemInput,
+    saleId: string,
+  ): Partial<SaleItemRecord> {
     const subtotal = this.roundToTwoDecimals(item.unitPrice * item.quantity);
 
     return {
@@ -275,7 +391,7 @@ export class SalesRepository {
       return this.roundToTwoDecimals(explicit);
     }
 
-    const sum = (items as SaleItemInput[]).reduce((total, item) => {
+    const sum = items.reduce((total, item) => {
       return total + item.unitPrice * item.quantity;
     }, 0);
 
