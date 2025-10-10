@@ -32,33 +32,14 @@ classDiagram
       +lineId: string
       +name: string
       +description: string?
-      +category: string
+      +category: Category
       +price: number
       +image: string?
       +stockQuantity: number
       +minStock: number
       +createdAt: string
       +updatedAt: string
-      +suppliers: ProductSupplier[]
-    }
-
-    class ProductSupplier {
-      +id: string
-      +productId: string
-      +supplierId: string
-      +code: string
-      +createdAt: string
-    }
-
-    class Supplier {
-      +id: string
-      +name: string
-      +contactPerson: string?
-      +email: string?
-      +phone: string?
-      +address: string?
-      +createdAt: string
-      +updatedAt: string
+      
     }
 
     class Sale {
@@ -81,12 +62,17 @@ classDiagram
       +createdAt: string
     }
 
+    class Category{
+      +id: string
+      +name: string
+      +description: string
+    }
+
     Brand "1" <-- "0..*" Line : agrupa
     Line "1" <-- "0..*" Product : clasifica
-    Product "1" <-- "0..*" SaleItem : vendido en
+    Product "1..*" <-- "1..*" SaleItem : vendido en
     Sale "1" --> "1..*" SaleItem : agrupa
-    Product "1" <-- "0..*" ProductSupplier : codifica
-    Supplier "1" <-- "0..*" ProductSupplier : abastece
+    Product "0..*" --> "0..1" Category: contiene 
 ```
 
 **Relaciones clave**
