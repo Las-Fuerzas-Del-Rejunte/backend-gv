@@ -42,7 +42,8 @@ interface MetricItem {
   brandId: string;
   brandName: string | null;
   lineId: string | null;
-  suppliers: string[];
+  categoryId: string | null;
+  categoryName: string | null;
   quantity: number;
   revenue: number;
 }
@@ -208,10 +209,7 @@ export class SalesService {
           continue;
         }
 
-        const suppliers = (product.product_suppliers ?? []).map(
-          (supplier) => supplier.supplier_id,
-        );
-        if (filters.supplierId && !suppliers.includes(filters.supplierId)) {
+        if (filters.categoryId && product.category_id !== filters.categoryId) {
           continue;
         }
 
@@ -223,7 +221,8 @@ export class SalesService {
           brandId: product.brand_id,
           brandName: product.brand?.name ?? null,
           lineId: product.line_id ?? null,
-          suppliers,
+          categoryId: product.category_id ?? null,
+          categoryName: product.category?.name ?? null,
           quantity: item.quantity,
           revenue: this.parseNumber(item.subtotal),
         });

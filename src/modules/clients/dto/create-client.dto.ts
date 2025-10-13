@@ -6,25 +6,24 @@ import {
   MaxLength,
 } from 'class-validator';
 
-export class CreateSupplierDto {
+export class CreateClientDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
-  name: string;
+  firstName: string;
 
-  @IsOptional()
   @IsString()
-  contactPerson?: string | null;
+  @IsNotEmpty()
+  @MaxLength(255)
+  lastName: string;
 
-  @IsOptional()
   @IsEmail()
-  email?: string | null;
+  @IsNotEmpty()
+  @MaxLength(255)
+  email: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   phone?: string | null;
-
-  @IsOptional()
-  @IsString()
-  address?: string | null;
 }

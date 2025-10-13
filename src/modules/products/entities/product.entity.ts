@@ -1,18 +1,21 @@
-import { ProductSupplier } from './product-supplier.entity';
+import { Category } from '../../categories/entities/category.entity';
+import { Client } from '../../clients/entities/client.entity';
 
 export interface Product {
   id: string;
   userId: string;
   brandId: string;
   lineId: string;
+  categoryId?: string | null;
+  clientId?: string | null;
   name: string;
   description?: string | null;
-  category: string;
   price: number;
   image?: string | null;
   stockQuantity: number;
   minStock: number;
   createdAt: string;
   updatedAt: string;
-  suppliers: ProductSupplier[];
+  category?: Category | null;
+  client?: Client | null;
 }

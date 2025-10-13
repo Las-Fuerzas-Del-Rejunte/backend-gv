@@ -38,10 +38,11 @@ interface MetricsProductRecord {
   id: string;
   name: string;
   brand_id: string;
-  line_id: string;
+  line_id: string | null;
+  category_id?: string | null;
   brand?: { id: string; name: string } | null;
   line?: { id: string; name: string } | null;
-  product_suppliers?: { supplier_id: string }[];
+  category?: { id: string; name: string } | null;
 }
 
 interface MetricsSaleItemRecord extends SaleItemRecord {
@@ -274,9 +275,10 @@ export class SalesRepository {
             name,
             brand_id,
             line_id,
+            category_id,
             brand:brands ( id, name ),
             line:lines ( id, name ),
-            product_suppliers ( supplier_id )
+            category:categories ( id, name )
           )
         )
       `,

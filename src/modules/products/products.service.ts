@@ -1,16 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ProductsRepository } from './repositories/products.repository';
-import {
-  CreateProductDto,
-  CreateProductSupplierDto,
-} from './dto/create-product.dto';
+import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { Product } from './entities/product.entity';
 import { BrandsService } from '../brands/brands.service';
 import { LinesService } from '../lines/lines.service';
-import { ProductSuppliersRepository } from './repositories/product-suppliers.repository';
-import { SuppliersService } from '../suppliers/suppliers.service';
-import { ProductSupplier } from './entities/product-supplier.entity';
+import { CategoriesService } from '../categories/categories.service';
+import { ClientsService } from '../clients/clients.service';
 
 interface BrandResolution {
   brandId: string;
@@ -22,14 +18,19 @@ interface LineResolution {
   rollbackActions: Array<() => Promise<void>>;
 }
 
+interface CategoryResolution {
+  categoryId?: string;
+  rollbackActions: Array<() => Promise<void>>;
+}
+
 @Injectable()
 export class ProductsService {
   constructor(
     private readonly productsRepository: ProductsRepository,
     private readonly brandsService: BrandsService,
     private readonly linesService: LinesService,
-    private readonly productSuppliersRepository: ProductSuppliersRepository,
-    private readonly suppliersService: SuppliersService,
+    private readonly categoriesService: CategoriesService,
+    private readonly clientsService: ClientsService,
   ) {}
 
   findAll(): Promise<Product[]> {
@@ -41,12 +42,9 @@ export class ProductsService {
   }
 
   async create(payload: CreateProductDto): Promise<Product> {
-    const normalizedSuppliers = this.normalizeSuppliers(payload.suppliers);
-    await this.ensureSuppliersExist(normalizedSuppliers);
-
     let brandInfo: BrandResolution | null = null;
     let lineInfo: LineResolution | null = null;
-    let product: Product | null = null;
+    let categoryInfo: CategoryResolution | null = null;
 
     try {
       brandInfo = await this.resolveBrand({
@@ -61,47 +59,46 @@ export class ProductsService {
         brandId: brandInfo.brandId,
       });
 
-      const {
-        newBrand: _newBrand,
-        newLine: _newLine,
-        suppliers: _suppliers,
-        ...rest
-      } = payload;
-      void _newBrand;
-      void _newLine;
-      void _suppliers;
+      categoryInfo = await this.resolveCategory({
+        categoryId: payload.categoryId,
+        newCategory: payload.newCategory,
+      });
+
+      if (payload.clientId !== undefined) {
+        await this.clientsService.findOne(payload.clientId);
+      }
+
       const productPayload: CreateProductDto = {
-        ...rest,
+        userId: payload.userId,
+        name: payload.name,
+        price: payload.price,
+        stockQuantity: payload.stockQuantity,
+        minStock: payload.minStock ?? 0,
         brandId: brandInfo.brandId,
         lineId: lineInfo.lineId,
       } as CreateProductDto;
 
-      if (productPayload.minStock === undefined) {
-        productPayload.minStock = 0;
+      if (payload.description !== undefined) {
+        productPayload.description = payload.description;
       }
 
-      if (productPayload.minStock === undefined) {
-        productPayload.minStock = 0;
+      if (payload.image !== undefined) {
+        productPayload.image = payload.image;
       }
 
-      product = await this.productsRepository.create(productPayload);
-      await this.productSuppliersRepository.replaceForProduct(
-        product.id,
-        normalizedSuppliers,
-        [],
-      );
+      if (categoryInfo.categoryId !== undefined) {
+        productPayload.categoryId = categoryInfo.categoryId;
+      }
 
-      return await this.productsRepository.findById(product.id);
+      if (payload.clientId !== undefined) {
+        productPayload.clientId = payload.clientId;
+      }
+
+      const product = await this.productsRepository.create(productPayload);
+      return this.productsRepository.findById(product.id);
     } catch (error) {
-      if (product) {
-        try {
-          await this.productsRepository.remove(product.id);
-        } catch {
-          // Best-effort cleanup; ignore removal issues.
-        }
-      }
-
       await this.rollback(
+        categoryInfo?.rollbackActions,
         lineInfo?.rollbackActions,
         brandInfo?.rollbackActions,
       );
@@ -113,18 +110,9 @@ export class ProductsService {
     const existing = await this.productsRepository.findById(id);
     const userId = payload.userId ?? existing.userId;
 
-    const suppliersProvided = payload.suppliers !== undefined;
-    const normalizedSuppliers = suppliersProvided
-      ? this.normalizeSuppliers(payload.suppliers ?? [])
-      : undefined;
-
-    if (normalizedSuppliers !== undefined) {
-      await this.ensureSuppliersExist(normalizedSuppliers);
-    }
-
     let brandInfo: BrandResolution | null = null;
     let lineInfo: LineResolution | null = null;
-    let productUpdated = false;
+    let categoryInfo: CategoryResolution | null = null;
 
     try {
       brandInfo = await this.resolveBrand({
@@ -139,71 +127,60 @@ export class ProductsService {
         lineId: payload.lineId ?? existing.lineId,
         newLine: payload.newLine,
         brandId: brandInfo.brandId,
-        currentLineId: existing.lineId,
       });
 
-      const {
-        newBrand: _updateNewBrand,
-        newLine: _updateNewLine,
-        suppliers: _updateSuppliers,
-        ...rest
-      } = payload;
-      void _updateNewBrand;
-      void _updateNewLine;
-      void _updateSuppliers;
+      categoryInfo = await this.resolveCategory({
+        categoryId: payload.categoryId,
+        newCategory: payload.newCategory,
+        currentCategoryId: existing.categoryId,
+      });
+
+      if (payload.clientId !== undefined) {
+        await this.clientsService.findOne(payload.clientId);
+      }
+
       const productPayload: UpdateProductDto = {
-        ...rest,
+        userId,
         brandId: brandInfo.brandId,
         lineId: lineInfo.lineId,
-        userId,
       } as UpdateProductDto;
 
-      const product = await this.productsRepository.update(id, productPayload);
-      productUpdated = true;
-
-      if (normalizedSuppliers !== undefined) {
-        await this.productSuppliersRepository.replaceForProduct(
-          id,
-          normalizedSuppliers,
-          existing.suppliers,
-        );
-        return await this.productsRepository.findById(id);
+      if (payload.name !== undefined) {
+        productPayload.name = payload.name;
       }
 
-      return product;
+      if (payload.description !== undefined) {
+        productPayload.description = payload.description;
+      }
+
+      if (payload.price !== undefined) {
+        productPayload.price = payload.price;
+      }
+
+      if (payload.image !== undefined) {
+        productPayload.image = payload.image;
+      }
+
+      if (payload.stockQuantity !== undefined) {
+        productPayload.stockQuantity = payload.stockQuantity;
+      }
+
+      if (payload.minStock !== undefined) {
+        productPayload.minStock = payload.minStock;
+      }
+
+      if (categoryInfo.categoryId !== undefined) {
+        productPayload.categoryId = categoryInfo.categoryId;
+      }
+
+      if (payload.clientId !== undefined) {
+        productPayload.clientId = payload.clientId;
+      }
+
+      return this.productsRepository.update(id, productPayload);
     } catch (error) {
-      if (normalizedSuppliers !== undefined) {
-        try {
-          await this.productSuppliersRepository.replaceForProduct(
-            id,
-            this.toSupplierDtos(existing.suppliers),
-            [],
-          );
-        } catch {
-          // Ignore restore issues to avoid shadowing the original error.
-        }
-      }
-
-      if (productUpdated) {
-        try {
-          await this.productsRepository.update(id, {
-            userId: existing.userId,
-            brandId: existing.brandId,
-            lineId: existing.lineId,
-            name: existing.name,
-            description: existing.description ?? null,
-            category: existing.category,
-            price: existing.price,
-            image: existing.image ?? null,
-            stockQuantity: existing.stockQuantity,
-            minStock: existing.minStock,
-          } as UpdateProductDto);
-        } catch {
-          // Ignore rollback errors; surface original failure.
-        }
-      }
-
       await this.rollback(
+        categoryInfo?.rollbackActions,
         lineInfo?.rollbackActions,
         brandInfo?.rollbackActions,
       );
@@ -224,10 +201,12 @@ export class ProductsService {
   }
 
   private async rollback(
-    lineActions?: Array<() => Promise<void>>,
-    brandActions?: Array<() => Promise<void>>,
+    ...actionGroups: Array<Array<() => Promise<void>> | undefined>
   ): Promise<void> {
-    const actions = [...(brandActions ?? []), ...(lineActions ?? [])].reverse();
+    const actions = actionGroups
+      .filter((group): group is Array<() => Promise<void>> => !!group)
+      .flat()
+      .reverse();
 
     for (const action of actions) {
       try {
@@ -288,7 +267,6 @@ export class ProductsService {
     lineId?: string;
     newLine?: CreateProductDto['newLine'];
     brandId: string;
-    currentLineId?: string;
   }): Promise<LineResolution> {
     const { lineId, newLine, brandId } = options;
     const rollbackActions: Array<() => Promise<void>> = [];
@@ -326,64 +304,37 @@ export class ProductsService {
     return { lineId: resolvedLineId, rollbackActions };
   }
 
-  private normalizeSuppliers(
-    input?: CreateProductSupplierDto[] | null,
-  ): CreateProductSupplierDto[] {
-    if (!input) {
-      return [];
+  private async resolveCategory(options: {
+    categoryId?: string;
+    newCategory?: CreateProductDto['newCategory'];
+    currentCategoryId?: string | null;
+  }): Promise<CategoryResolution> {
+    const { categoryId, newCategory, currentCategoryId } = options;
+    const rollbackActions: Array<() => Promise<void>> = [];
+
+    if (newCategory && categoryId) {
+      throw new BadRequestException(
+        'Provide either an existing categoryId or newCategory data, not both.',
+      );
     }
 
-    const seenCodes = new Set<string>();
-    const seenSuppliers = new Set<string>();
-
-    return input.map((item) => {
-      const supplierId = item.supplierId;
-      const code = item.code.trim();
-
-      if (!code) {
-        throw new BadRequestException('Supplier code cannot be empty.');
-      }
-
-      if (seenSuppliers.has(supplierId)) {
-        throw new BadRequestException(
-          'Duplicate supplier detected in payload.',
-        );
-      }
-
-      const codeKey = code.toLowerCase();
-      if (seenCodes.has(codeKey)) {
-        throw new BadRequestException(
-          'Supplier codes must be unique per product (case insensitive).',
-        );
-      }
-
-      seenSuppliers.add(supplierId);
-      seenCodes.add(codeKey);
-
-      return { supplierId, code };
-    });
-  }
-
-  private async ensureSuppliersExist(
-    suppliers: CreateProductSupplierDto[],
-  ): Promise<void> {
-    if (suppliers.length === 0) {
-      return;
+    if (newCategory) {
+      const category = await this.categoriesService.create(newCategory);
+      rollbackActions.push(async () =>
+        this.categoriesService.remove(category.id),
+      );
+      return { categoryId: category.id, rollbackActions };
     }
 
-    await Promise.all(
-      suppliers.map((supplier) =>
-        this.suppliersService.findOne(supplier.supplierId),
-      ),
-    );
-  }
+    if (categoryId) {
+      await this.categoriesService.findOne(categoryId);
+      return { categoryId, rollbackActions };
+    }
 
-  private toSupplierDtos(
-    existing: ProductSupplier[],
-  ): CreateProductSupplierDto[] {
-    return existing.map((item) => ({
-      supplierId: item.supplierId,
-      code: item.code,
-    }));
+    if (currentCategoryId) {
+      return { categoryId: currentCategoryId, rollbackActions };
+    }
+
+    return { rollbackActions };
   }
 }

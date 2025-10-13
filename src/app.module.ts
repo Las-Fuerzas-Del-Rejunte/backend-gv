@@ -7,8 +7,9 @@ import { SupabaseModule } from './database/supabase.module';
 import { BrandsModule } from './modules/brands/brands.module';
 import { LinesModule } from './modules/lines/lines.module';
 import { ProductsModule } from './modules/products/products.module';
-import { SuppliersModule } from './modules/suppliers/suppliers.module';
+import { CategoriesModule } from './modules/categories/categories.module';
 import { SalesModule } from './modules/sales/sales.module';
+import { ClientsModule } from './modules/clients/clients.module';
 import { SupabaseAuthGuard } from './common/guards/supabase-auth.guard';
 import { SupabaseRoleGuard } from './common/guards/supabase-role.guard';
 
@@ -18,8 +19,9 @@ import { SupabaseRoleGuard } from './common/guards/supabase-role.guard';
     SupabaseModule,
     BrandsModule,
     LinesModule,
+    CategoriesModule,
+    ClientsModule,
     ProductsModule,
-    SuppliersModule,
     SalesModule,
   ],
   controllers: [AppController],

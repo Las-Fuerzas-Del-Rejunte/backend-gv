@@ -19,7 +19,7 @@ export class SalesMetricsFilterDto {
 
   @IsOptional()
   @IsUUID()
-  supplierId?: string;
+  categoryId?: string;
 
   @IsOptional()
   @IsUUID()

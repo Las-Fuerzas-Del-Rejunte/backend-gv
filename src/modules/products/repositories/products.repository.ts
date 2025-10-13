@@ -23,7 +23,8 @@ export class ProductsRepository extends SupabaseCrudRepository<
     column: 'created_at',
     ascending: false,
   } as const;
-  protected readonly selectColumns = '*, product_suppliers(*)';
+  protected readonly selectColumns =
+    '*, category:categories ( id, name, description, created_at, updated_at ), client:clients ( id, first_name, last_name, email, phone, created_at, updated_at )';
 
   constructor(supabase: SupabaseService, adapter: ProductsSupabaseAdapter) {
     super(supabase);

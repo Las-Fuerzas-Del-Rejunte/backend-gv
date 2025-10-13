@@ -3,14 +3,15 @@ import { SupabaseAdapter } from '../../../common/adapters/supabase-adapter';
 import { Product } from '../entities/product.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
-import { ProductSupplier } from '../entities/product-supplier.entity';
+import { Category } from '../../categories/entities/category.entity';
+import { Client } from '../../clients/entities/client.entity';
 
-export interface ProductSupplierRecord {
+export interface ProductCategoryRecord {
   id: string;
-  product_id: string;
-  supplier_id: string;
-  code: string;
+  name: string;
+  description?: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface ProductRecord {
@@ -18,16 +19,28 @@ export interface ProductRecord {
   user_id: string;
   brand_id: string;
   line_id: string;
+  category_id?: string | null;
+  client_id?: string | null;
   name: string;
   description?: string | null;
-  category: string;
   price: string | number;
   image?: string | null;
   stock_quantity: number;
   min_stock: number;
   created_at: string;
   updated_at: string;
-  product_suppliers?: ProductSupplierRecord[];
+  category?: ProductCategoryRecord | null;
+  client?: ProductClientRecord | null;
+}
+
+export interface ProductClientRecord {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 @Injectable()
@@ -41,9 +54,10 @@ export class ProductsSupabaseAdapter
       userId: record.user_id,
       brandId: record.brand_id,
       lineId: record.line_id,
+      categoryId: record.category_id ?? null,
+      clientId: record.client_id ?? null,
       name: record.name,
       description: record.description ?? null,
-      category: record.category,
       price:
         typeof record.price === 'string'
           ? parseFloat(record.price)
@@ -53,9 +67,8 @@ export class ProductsSupabaseAdapter
       minStock: record.min_stock,
       createdAt: record.created_at,
       updatedAt: record.updated_at,
-      suppliers: (record.product_suppliers ?? []).map((item) =>
-        this.toSupplier(item),
-      ),
+      category: this.toCategory(record.category),
+      client: this.toClient(record.client),
     };
   }
 
@@ -76,16 +89,20 @@ export class ProductsSupabaseAdapter
       record.line_id = payload.lineId;
     }
 
+    if (payload.categoryId !== undefined) {
+      record.category_id = payload.categoryId;
+    }
+
+    if (payload.clientId !== undefined) {
+      record.client_id = payload.clientId;
+    }
+
     if (payload.name !== undefined) {
       record.name = payload.name;
     }
 
     if (payload.description !== undefined) {
       record.description = payload.description;
-    }
-
-    if (payload.category !== undefined) {
-      record.category = payload.category;
     }
 
     if (payload.price !== undefined) {
@@ -107,13 +124,33 @@ export class ProductsSupabaseAdapter
     return record;
   }
 
-  private toSupplier(record: ProductSupplierRecord): ProductSupplier {
+  private toCategory(record?: ProductCategoryRecord | null): Category | null {
+    if (!record) {
+      return null;
+    }
+
     return {
       id: record.id,
-      productId: record.product_id,
-      supplierId: record.supplier_id,
-      code: record.code,
+      name: record.name,
+      description: record.description ?? null,
       createdAt: record.created_at,
+      updatedAt: record.updated_at,
+    };
+  }
+
+  private toClient(record?: ProductClientRecord | null): Client | null {
+    if (!record) {
+      return null;
+    }
+
+    return {
+      id: record.id,
+      firstName: record.first_name,
+      lastName: record.last_name,
+      email: record.email,
+      phone: record.phone ?? null,
+      createdAt: record.created_at,
+      updatedAt: record.updated_at,
     };
   }
 }

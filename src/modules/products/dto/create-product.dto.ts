@@ -1,6 +1,4 @@
 import {
-  ArrayUnique,
-  IsArray,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -10,7 +8,6 @@ import {
   IsUUID,
   MaxLength,
   Min,
-  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -41,21 +38,22 @@ export class CreateProductLineDto {
   description?: string | null;
 }
 
-export class CreateProductSupplierDto {
-  @IsUUID()
-  supplierId: string;
-
+export class CreateProductCategoryDto {
   @IsString()
   @IsNotEmpty()
-  @MaxLength(64)
-  code: string;
+  @MaxLength(255)
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string | null;
 }
 
 export class CreateProductDto {
   @IsUUID()
   userId: string;
 
-  @ValidateIf((payload: CreateProductDto) => !payload.newBrand)
+  @IsOptional()
   @IsUUID()
   brandId?: string;
 
@@ -64,7 +62,7 @@ export class CreateProductDto {
   @Type(() => CreateProductBrandDto)
   newBrand?: CreateProductBrandDto;
 
-  @ValidateIf((payload: CreateProductDto) => !payload.newLine)
+  @IsOptional()
   @IsUUID()
   lineId?: string;
 
@@ -74,12 +72,17 @@ export class CreateProductDto {
   newLine?: CreateProductLineDto;
 
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateProductSupplierDto)
-  @ArrayUnique((item: CreateProductSupplierDto) => item.supplierId)
-  @ArrayUnique((item: CreateProductSupplierDto) => item.code.toLowerCase())
-  suppliers?: CreateProductSupplierDto[];
+  @IsUUID()
+  categoryId?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateProductCategoryDto)
+  newCategory?: CreateProductCategoryDto;
+
+  @IsOptional()
+  @IsUUID()
+  clientId?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -89,10 +92,6 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   description?: string | null;
-
-  @IsString()
-  @IsNotEmpty()
-  category: string;
 
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
