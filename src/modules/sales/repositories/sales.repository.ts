@@ -16,6 +16,7 @@ type SaleItemInput = CreateSaleItemDto | UpdateSaleItemDto;
 interface SaleRecord {
   id: string;
   employee_id: string;
+  client_id?: string | null;
   total_amount: string | number;
   sale_date: string;
   notes?: string | null;
@@ -327,6 +328,7 @@ export class SalesRepository {
     return {
       id: record.id,
       employeeId: record.employee_id,
+      clientId: record.client_id ?? null,
       totalAmount: this.parseNumber(record.total_amount),
       saleDate: record.sale_date,
       notes: record.notes ?? null,
@@ -356,6 +358,10 @@ export class SalesRepository {
 
     if ('employeeId' in payload && payload.employeeId !== undefined) {
       record.employee_id = payload.employeeId;
+    }
+
+    if ('clientId' in payload && payload.clientId !== undefined) {
+      record.client_id = payload.clientId;
     }
 
     if (totalAmount !== undefined) {

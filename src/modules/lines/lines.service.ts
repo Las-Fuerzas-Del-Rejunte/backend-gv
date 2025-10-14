@@ -47,6 +47,11 @@ export class LinesService {
     return this.linesRepository.remove(id);
   }
 
+  async checkNameExists(brandId: string, name: string): Promise<boolean> {
+    const existing = await this.linesRepository.findByBrandAndName(brandId, name);
+    return !!existing;
+  }
+
   private async ensureUniqueName(
     brandId: string,
     name: string,

@@ -34,6 +34,10 @@ export class CreateSaleDto {
   employeeId: string;
 
   @IsOptional()
+  @IsUUID()
+  clientId?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()

@@ -35,6 +35,10 @@ export class UpdateSaleItemDto {
 
 export class UpdateSaleDto {
   @IsOptional()
+  @IsUUID()
+  clientId?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()

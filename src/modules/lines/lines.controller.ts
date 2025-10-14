@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { LinesService } from './lines.service';
 import { CreateLineDto } from './dto/create-line.dto';
@@ -22,6 +23,15 @@ export class LinesController {
   @Get()
   findAll(): Promise<Line[]> {
     return this.linesService.findAll();
+  }
+
+  @Get('check/name')
+  async checkName(
+    @Query('name') name: string,
+    @Query('brandId', ParseUUIDPipe) brandId: string,
+  ): Promise<{ exists: boolean }> {
+    const exists = await this.linesService.checkNameExists(brandId, name);
+    return { exists };
   }
 
   @Get(':id')
