@@ -20,6 +20,7 @@ export class LinesRepository extends SupabaseCrudRepository<
     column: 'created_at',
     ascending: false,
   } as const;
+  protected readonly selectColumns = '*, brand:brands(id, name)';
 
   constructor(supabase: SupabaseService, adapter: LinesSupabaseAdapter) {
     super(supabase);

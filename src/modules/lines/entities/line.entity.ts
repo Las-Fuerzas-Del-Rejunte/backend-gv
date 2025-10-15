@@ -1,3 +1,8 @@
+export interface Brand {
+  id: string;
+  name: string;
+}
+
 export interface Line {
   id: string;
   brandId: string;
@@ -5,4 +10,5 @@ export interface Line {
   description?: string | null;
   createdAt: string;
   updatedAt: string;
+  brand?: Brand;
 }
