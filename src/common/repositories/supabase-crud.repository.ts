@@ -27,7 +27,7 @@ export abstract class SupabaseCrudRepository<
   protected readonly selectColumns: string = '*';
   protected readonly orderBy?: OrderConfig;
 
-  protected constructor(protected readonly supabase: SupabaseService) {}
+  public constructor(protected readonly supabase: SupabaseService) {}
 
   async findAll(): Promise<DomainType[]> {
     const query = this.supabase.client
